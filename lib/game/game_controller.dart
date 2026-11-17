@@ -8,9 +8,6 @@ import '../core/rules.dart';
 import '../core/scoring.dart';
 import '../core/square.dart';
 
-/// Holds the current [GameState] for one level and turns taps into moves.
-/// The Flame game listens to [moves]/[resets] to animate; widgets listen via
-/// [ChangeNotifier] to rebuild the HUD.
 class GameController extends ChangeNotifier {
   GameController(this.level) : _state = level.start();
 
@@ -18,54 +15,49 @@ class GameController extends ChangeNotifier {
   GameState _state;
   final List<GameState> _history = [];
   final _moves = StreamController<MoveResult>.broadcast();
-  final _resets = StreamController<GameState>.broadcast();
+  final _resets = StreamController<GameState>.broadcast(sync: true);
+  MoveResult? _pendingMove;
 
-  /// True while the board is animating a move; input is ignored meanwhile.
-  bool busy = false;
-
-  /// True once the end-of-level finale has finished (result card can show).
-  bool finaleDone = false;
-
+  bool get busy => _pendingMove != null;
+  bool get finaleDone => _state.isOver && !busy;
   GameState get state => _state;
   Stream<MoveResult> get moves => _moves.stream;
   Stream<GameState> get resets => _resets.stream;
   List<Square> get legalMoves => Rules.legalMoves(_state);
   bool get canUndo => _history.isNotEmpty;
 
-  /// Stars for the current score (0 until won).
   int get stars => Scoring.stars(
     won: _state.isWon,
     score: _state.totalScore,
     thresholds: level.stars,
   );
 
-  /// 0..1 fill of the star bar toward the 3-star score.
   double get starProgress {
     final three = level.stars[1];
     if (three <= 0) return _state.isWon ? 1 : 0;
     return (_state.totalScore / three).clamp(0.0, 1.0);
   }
 
-  /// Tries to move the head to [to]. Returns false if not legal or busy.
   bool tryMove(Square to) {
     if (busy || _state.isOver || !legalMoves.contains(to)) return false;
     final result = Rules.apply(_state, to);
     _history.add(_state);
     _state = result.state;
-    busy = true;
-    notifyListeners();
+    _pendingMove = result;
     _moves.add(result);
+    notifyListeners();
     return true;
   }
 
-  /// Called by the game when the move animation is finished.
-  void animationDone() {
-    busy = false;
-    if (_state.isOver) finaleDone = true;
+  /// A restart or undo invalidates callbacks from the previous move.
+  bool isAnimating(MoveResult move) => identical(_pendingMove, move);
+
+  void animationDone(MoveResult move) {
+    if (!isAnimating(move)) return;
+    _pendingMove = null;
     notifyListeners();
   }
 
-  /// Steps back one move (used by the rewarded "undo" after a crash).
   void undo() {
     if (_history.isEmpty) return;
     _state = _history.removeLast();
@@ -79,14 +71,14 @@ class GameController extends ChangeNotifier {
   }
 
   void _resetView() {
-    busy = false;
-    finaleDone = false;
-    notifyListeners();
+    _pendingMove = null;
     _resets.add(_state);
+    notifyListeners();
   }
 
   @override
   void dispose() {
+    _pendingMove = null;
     unawaited(_moves.close());
     unawaited(_resets.close());
     super.dispose();

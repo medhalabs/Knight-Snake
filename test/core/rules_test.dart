@@ -158,4 +158,16 @@ void main() {
     );
     expect(Rules.start(s).status, GameStatus.lostTrapped);
   });
+
+  test('an already-complete goal earns its unused-move bonus', () {
+    final s = stateOf(
+      board: boardWith({'b3': '#', 'c2': '#'}),
+      snake: snake(PieceType.knight, 'a1'),
+      moveLimit: 3,
+    );
+    final started = Rules.start(s);
+    expect(started.status, GameStatus.won);
+    expect(started.bonus, 3 * Scoring.perUnusedMove);
+    expect(Rules.legalMoves(started), isEmpty);
+  });
 }

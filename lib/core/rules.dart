@@ -59,7 +59,10 @@ abstract final class Rules {
   /// Initial status check (a level could start trapped; treat as a loss).
   static GameState start(GameState state) {
     if (state.goal.isComplete(state)) {
-      return state.copyWith(status: GameStatus.won);
+      return state.copyWith(
+        status: GameStatus.won,
+        bonus: Scoring.movesBonus(state.movesLeft ?? 0),
+      );
     }
     if (legalMovesFor(state.board, state.snake).isEmpty) {
       return state.copyWith(status: GameStatus.lostTrapped);

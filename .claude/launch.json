@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "C:/Users/princ/develop/flutter/bin/dart.bat",
+      "runtimeArgs": ["run", "tool/serve_web.dart", "--port", "8080"],
+      "port": 8080
+    }
+  ]
+}

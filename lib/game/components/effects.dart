@@ -6,159 +6,151 @@ import 'package:flutter/painting.dart';
 import '../../core/rng.dart';
 import '../palette.dart';
 
-TextPainter _label(String text, double size, Color fill, {Color? outline}) {
-  final style = TextStyle(
-    fontSize: size,
-    fontWeight: FontWeight.w900,
-    letterSpacing: size * 0.02,
-  );
-  return TextPainter(
-    text: TextSpan(
-      children: [
-        TextSpan(
-          text: text,
-          style: style.copyWith(
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = size * 0.18
-              ..strokeJoin = StrokeJoin.round
-              ..color = outline ?? Palette.ink,
-          ),
-        ),
-      ],
-    ),
-    textDirection: TextDirection.ltr,
-  )..layout();
-}
-
-void _paintOutlined(
-  Canvas canvas,
-  String text,
-  double size,
-  Color fill,
-  Offset center,
-  double alpha,
-) {
-  final back = _label(text, size, fill);
-  final front = TextPainter(
-    text: TextSpan(
-      text: text,
-      style: TextStyle(
-        fontSize: size,
-        fontWeight: FontWeight.w900,
-        letterSpacing: size * 0.02,
-        color: fill,
-      ),
-    ),
-    textDirection: TextDirection.ltr,
-  )..layout();
-  final at = center - Offset(front.width / 2, front.height / 2);
-  canvas.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, alpha));
-  back.paint(canvas, at);
-  front.paint(canvas, at);
-  canvas.restore();
-}
-
-/// `+60` with an optional reason line (e.g. `COMBO ×2`) that floats up.
 class FloatingText extends PositionComponent {
   FloatingText(
-    this.text,
-    this.reason, {
+    this.text, {
     required Vector2 at,
     required this.cell,
-  }) : super(position: at, priority: 50);
+    required this.reducedMotion,
+    this.reason,
+    this.color = Palette.white,
+    this.victory = false,
+  }) : super(position: at, priority: victory ? 60 : 50);
 
   final String text;
   final String? reason;
+  final Color color;
   final double cell;
+  final bool reducedMotion;
+  final bool victory;
   double _t = 0;
+
+  double get _life => victory ? 0.92 : 0.64;
 
   @override
   void update(double dt) {
     _t += dt;
-    position.y -= dt * cell * 0.9;
-    if (_t > 1.1) removeFromParent();
+    if (_t >= _life) removeFromParent();
   }
 
   @override
   void render(Canvas canvas) {
-    final alpha = _t < 0.8 ? 1.0 : (1 - (_t - 0.8) / 0.3).clamp(0.0, 1.0);
-    final s = math.min(1.0, 0.6 + _t * 4);
-    _paintOutlined(
-      canvas,
-      text,
-      cell * 0.38 * s,
-      Palette.white,
-      Offset.zero,
-      alpha,
-    );
-    if (reason != null) {
-      _paintOutlined(
+    if (_t >= _life) return;
+    final t = _t / _life;
+    final alpha = reducedMotion ? 1.0 : ((1 - t) * 4).clamp(0.0, 1.0);
+    final drift = reducedMotion || victory ? 0.0 : t * cell * 0.36;
+    final scale = reducedMotion
+        ? 1.0
+        : 1 + math.sin(math.pi * math.min(1, t * 3.5)) * 0.16;
+    final titleSize = cell * (victory ? 0.66 : 0.42);
+    canvas
+      ..save()
+      ..translate(0, -drift)
+      ..scale(scale);
+    _label(canvas, text, titleSize, color, alpha, Offset.zero);
+    if (reason case final detail?) {
+      _label(
         canvas,
-        reason!,
-        cell * 0.24 * s,
+        detail,
+        cell * 0.24,
         Palette.star,
-        Offset(0, cell * 0.34),
         alpha,
+        Offset(0, cell * 0.42),
       );
     }
+    canvas.restore();
+  }
+
+  void _label(
+    Canvas canvas,
+    String text,
+    double size,
+    Color color,
+    double alpha,
+    Offset at,
+  ) {
+    final style = TextStyle(
+      fontSize: size,
+      fontFamily: 'Roboto',
+      fontWeight: FontWeight.w900,
+      letterSpacing: size * 0.065,
+    );
+    final outline = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = size * 0.22
+      ..color = Palette.ink.withValues(alpha: alpha * 0.95);
+    final back = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: style.copyWith(foreground: outline),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final front = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: style.copyWith(color: color.withValues(alpha: alpha)),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final origin = at - Offset(front.width / 2, front.height / 2);
+    back.paint(canvas, origin);
+    front.paint(canvas, origin);
+    back.dispose();
+    front.dispose();
   }
 }
 
-/// Big praise word in the middle of the board (NICE!, GREAT!, CHECKMATE!).
-class PraiseText extends PositionComponent {
-  PraiseText(
-    this.text, {
+class ImpactRing extends PositionComponent {
+  ImpactRing({
     required Vector2 at,
-    required this.fontSize,
-    this.color,
-  }) : super(position: at, priority: 60);
+    required this.cell,
+    required this.color,
+    this.strength = 1,
+  }) : super(position: at, priority: 30);
 
-  final String text;
-  final double fontSize;
-  final Color? color;
+  final double cell;
+  final Color color;
+  final double strength;
   double _t = 0;
 
   @override
   void update(double dt) {
-    _t += dt;
-    if (_t > 1.3) removeFromParent();
+    _t += dt / 0.38;
+    if (_t >= 1) removeFromParent();
   }
 
   @override
   void render(Canvas canvas) {
-    final grow = _t < 0.25 ? _t / 0.25 : 1.0;
-    final scale = grow < 1
-        ? 0.3 + 0.9 * grow
-        : 1.2 - 0.2 * math.min(1, (_t - 0.25) * 4);
-    final alpha = _t < 1.0 ? 1.0 : (1 - (_t - 1.0) / 0.3).clamp(0.0, 1.0);
+    if (_t >= 1) return;
+    final back = 1 - _t;
+    final r = cell * (0.34 + (1 - back * back) * 0.64 * strength);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = cell * (0.014 + back * 0.045)
+      ..color = color.withValues(alpha: back * 0.85);
     canvas
-      ..save()
-      ..rotate(-0.06)
-      ..scale(scale);
-    _paintOutlined(
-      canvas,
-      text,
-      fontSize,
-      color ?? Palette.star,
-      Offset.zero,
-      alpha,
-    );
-    canvas.restore();
+      ..drawCircle(Offset.zero, r, paint)
+      ..drawCircle(
+        Offset.zero,
+        r * 0.84,
+        paint
+          ..strokeWidth = cell * 0.024
+          ..color = color.withValues(alpha: back * 0.38),
+      );
   }
 }
 
 class _Particle {
-  _Particle(this.p, this.v, this.color, this.size, this.spin, this.square);
-  Offset p;
+  _Particle(this.v, this.color, this.size, this.spin);
+  Offset p = Offset.zero;
   Offset v;
   final Color color;
   final double size;
   final double spin;
-  final bool square;
 }
 
-/// Particle burst (eat) or confetti (win). Uses a seeded RNG.
 class Burst extends PositionComponent {
   Burst({
     required Vector2 at,
@@ -175,29 +167,27 @@ class Burst extends PositionComponent {
   final int count;
   final bool confetti;
   final XorShift32 _rng;
-  final List<_Particle> _ps = [];
+  final List<_Particle> _particles = [];
   double _t = 0;
 
-  double get _life => confetti ? 2.2 : 0.7;
-  double _r() => _rng.nextInt(10000) / 10000;
+  double get _life => confetti ? 1.25 : 0.54;
+  double _random() => _rng.nextInt(10000) / 10000;
 
   @override
   Future<void> onLoad() async {
     for (var i = 0; i < count; i++) {
-      final a = _r() * math.pi * 2;
-      final speed = cell * (confetti ? 3 + _r() * 5 : 1.5 + _r() * 2.5);
-      final v = Offset(
-        math.cos(a) * speed,
-        math.sin(a) * speed - (confetti ? cell * 4 : 0),
-      );
-      _ps.add(
+      final angle = _random() * math.pi * 2;
+      final speed =
+          cell * (confetti ? 2.5 + _random() * 4 : 1.4 + _random() * 3);
+      _particles.add(
         _Particle(
-          Offset.zero,
-          v,
+          Offset(
+            math.cos(angle) * speed,
+            math.sin(angle) * speed - (confetti ? cell * 2.4 : 0),
+          ),
           colors[i % colors.length],
-          cell * (confetti ? 0.09 + _r() * 0.06 : 0.06 + _r() * 0.06),
-          _r() * 10,
-          confetti,
+          cell * (0.032 + _random() * 0.05),
+          2 + _random() * 9,
         ),
       );
     }
@@ -206,36 +196,49 @@ class Burst extends PositionComponent {
   @override
   void update(double dt) {
     _t += dt;
-    final g = cell * (confetti ? 7 : 3);
-    for (final p in _ps) {
+    final friction = math.max(0.0, 1 - dt * 1.5);
+    final gravity = cell * (confetti ? 6 : 2.5);
+    for (final p in _particles) {
       p
-        ..v = Offset(p.v.dx * (1 - dt * 1.5), p.v.dy + g * dt)
+        ..v = Offset(p.v.dx * friction, p.v.dy + gravity * dt)
         ..p = p.p + p.v * dt;
     }
-    if (_t > _life) removeFromParent();
+    if (_t >= _life) removeFromParent();
   }
 
   @override
   void render(Canvas canvas) {
-    final alpha = (1 - _t / _life).clamp(0.0, 1.0);
-    for (final p in _ps) {
-      final paint = Paint()..color = p.color.withValues(alpha: alpha);
-      if (p.square) {
+    if (_t >= _life) return;
+    final alpha = ((1 - _t / _life) * 1.8).clamp(0.0, 1.0);
+    final paint = Paint();
+    for (final p in _particles) {
+      paint.color = p.color.withValues(alpha: alpha);
+      if (confetti) {
         canvas
           ..save()
           ..translate(p.p.dx, p.p.dy)
           ..rotate(p.spin * _t)
-          ..drawRect(
-            Rect.fromCenter(
-              center: Offset.zero,
-              width: p.size * 2,
-              height: p.size,
+          ..drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                center: Offset.zero,
+                width: p.size * 2.3,
+                height: p.size,
+              ),
+              Radius.circular(p.size * 0.25),
             ),
             paint,
           )
           ..restore();
       } else {
-        canvas.drawCircle(p.p, p.size, paint);
+        final tail = p.p - p.v * 0.026;
+        canvas.drawLine(
+          tail,
+          p.p,
+          paint
+            ..strokeCap = StrokeCap.round
+            ..strokeWidth = p.size * 1.35,
+        );
       }
     }
   }

@@ -6,7 +6,6 @@ import 'package:flame/components.dart';
 import '../../core/piece.dart';
 import 'token_painter.dart';
 
-/// An enemy piece waiting to be eaten. Wobbles gently; pops when eaten.
 class FoodComponent extends PositionComponent {
   FoodComponent({
     required this.piece,
@@ -22,42 +21,44 @@ class FoodComponent extends PositionComponent {
   final bool reducedMotion;
 
   double _t = 0;
-  double _eaten = -1; // <0 alive, else seconds since eaten
-  double _appear = 0;
+  double _eaten = -1;
 
-  void eat() => _eaten = 0;
+  void eat() {
+    if (reducedMotion) {
+      removeFromParent();
+    } else {
+      _eaten = 0;
+    }
+  }
 
   @override
   void update(double dt) {
     _t += dt;
-    _appear = math.min(1, _appear + dt * 4);
     if (_eaten >= 0) {
       _eaten += dt;
-      if (_eaten > 0.25) removeFromParent();
+      if (_eaten > 0.16) removeFromParent();
     }
   }
 
   @override
   void render(Canvas canvas) {
-    var scale = _easeOutBack(_appear);
-    var alpha = 1.0;
+    if (_eaten > 0.16) return;
     if (_eaten >= 0) {
-      final k = (_eaten / 0.25).clamp(0.0, 1.0);
-      scale = 1 + k * 0.5;
-      alpha = 1 - k;
+      final fade = _eaten / 0.16;
+      canvas
+        ..saveLayer(
+          Rect.fromCircle(center: Offset.zero, radius: cell * 0.8),
+          Paint()..color = Color.fromRGBO(0, 0, 0, 1 - fade),
+        )
+        ..scale(1 + fade * 0.55);
+    } else {
+      final hover = reducedMotion ? 0.0 : math.sin(_t * 2.4 + phase);
+      canvas
+        ..save()
+        ..translate(0, hover * cell * 0.024)
+        ..rotate(hover * 0.055);
     }
-    final wobble = reducedMotion ? 0.0 : math.sin(_t * 2.4 + phase) * 0.07;
-    canvas
-      ..saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, alpha))
-      ..rotate(wobble)
-      ..scale(scale);
-    TokenPainter.food(canvas, Offset.zero, cell * 0.36, piece);
+    TokenPainter.food(canvas, Offset.zero, cell * 0.34, piece);
     canvas.restore();
   }
-}
-
-double _easeOutBack(double t) {
-  const c1 = 1.70158;
-  const c3 = c1 + 1;
-  return 1 + c3 * math.pow(t - 1, 3) + c1 * math.pow(t - 1, 2);
 }

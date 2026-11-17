@@ -1,14 +1,12 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../core/piece.dart';
 import '../palette.dart';
 import '../piece_paths.dart';
 
-/// Paints round piece tokens: the snake head (colored, white silhouette,
-/// eyes) and food (dark, light silhouette).
+/// Faceted chess tokens, shared by the board, HUD and title art.
 abstract final class TokenPainter {
-  /// Glossy colored head token with a white silhouette and eyes.
-  /// [blink] 0 = open, 1 = closed. [look] shifts the pupils (unit offset).
   static void head(
     Canvas canvas,
     Offset c,
@@ -18,67 +16,118 @@ abstract final class TokenPainter {
     Offset look = Offset.zero,
   }) {
     final color = Palette.head(type);
-    _glossyCircle(canvas, c, radius, color);
-    final box = Rect.fromCircle(center: c, radius: radius * 0.86);
-    PiecePaths.draw(
-      canvas,
-      type,
-      box.shift(Offset(0, radius * 0.04)),
-      Paint()..color = Palette.shade(color, 0.35),
-    );
-    PiecePaths.draw(canvas, type, box, Paint()..color = Palette.white);
+    _medal(canvas, c, radius, color, active: true);
+    final box = Rect.fromCircle(center: c, radius: radius * 0.79);
+    _piece(canvas, type, box, color, Palette.white);
     _eyes(canvas, type, box, blink, look);
   }
 
-  /// Dark food token with a light silhouette.
   static void food(Canvas canvas, Offset c, double radius, PieceType type) {
-    canvas
-      ..drawCircle(
-        c.translate(0, radius * 0.1),
-        radius,
-        Paint()..color = const Color(0x33000000),
-      )
-      ..drawCircle(c, radius, Paint()..color = Palette.foodRim)
-      ..drawCircle(c, radius * 0.88, Paint()..color = Palette.foodToken);
-    final box = Rect.fromCircle(center: c, radius: radius * 0.78);
-    PiecePaths.draw(canvas, type, box, Paint()..color = Palette.foodSilhouette);
-    if (type == PieceType.pawn) {
-      // Pawn snacks get a small green dot so they differ from heads by more
-      // than shape (they never change your head).
-      canvas.drawCircle(
-        c.translate(radius * 0.62, -radius * 0.62),
-        radius * 0.16,
-        Paint()..color = Palette.head(PieceType.pawn),
-      );
-    }
+    final color = Palette.head(type);
+    _medal(canvas, c, radius, color, active: false);
+    _piece(
+      canvas,
+      type,
+      Rect.fromCircle(center: c, radius: radius * 0.80),
+      color,
+      Palette.tint(color, 0.46),
+    );
   }
 
-  static void _glossyCircle(Canvas canvas, Offset c, double r, Color color) {
+  static void _medal(
+    Canvas canvas,
+    Offset c,
+    double r,
+    Color color, {
+    required bool active,
+  }) {
+    final light = Palette.tint(color, 0.55);
+    final shadow = Palette.shade(color, 0.80);
+    final bevel = Rect.fromCircle(center: c, radius: r);
+    final paint = Paint();
     canvas
       ..drawCircle(
-        c.translate(0, r * 0.12),
+        c,
+        r * 1.36,
+        paint
+          ..shader = Gradient.radial(c, r * 1.36, [
+            color.withValues(alpha: active ? 0.48 : 0.22),
+            color.withValues(alpha: 0),
+          ]),
+      )
+      ..drawCircle(
+        c.translate(0, r * 0.14),
         r,
-        Paint()..color = Palette.shade(color, 0.3),
+        paint
+          ..shader = null
+          ..color = Palette.ink,
       )
       ..drawCircle(
         c,
         r,
-        Paint()
-          ..shader = Gradient.radial(
-            c.translate(-r * 0.35, -r * 0.4),
-            r * 1.6,
-            [Palette.tint(color, 0.35), color, Palette.shade(color, 0.12)],
-            const [0, 0.55, 1],
+        paint
+          ..shader = Gradient.linear(
+            bevel.topLeft,
+            bevel.bottomRight,
+            [light, color, shadow],
+            const [0, 0.38, 1],
           ),
       )
-      ..drawOval(
-        Rect.fromCenter(
-          center: c.translate(-r * 0.32, -r * 0.5),
-          width: r * 0.7,
-          height: r * 0.32,
-        ),
-        Paint()..color = const Color(0x66FFFFFF),
+      ..drawCircle(
+        c,
+        r * 0.84,
+        paint
+          ..shader = Gradient.radial(
+            c.translate(-r * 0.32, -r * 0.5),
+            r * 1.55,
+            [active ? color : Palette.shade(color, 0.62), shadow, Palette.ink],
+            const [0, 0.72, 1],
+          ),
       );
+    paint
+      ..shader = null
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = r * 0.04
+      ..color = light.withValues(alpha: 0.72);
+    canvas.drawArc(bevel.deflate(r * 0.08), -2.96, 1.88, false, paint);
+    paint.color = color.withValues(alpha: 0.44);
+    canvas.drawArc(bevel.deflate(r * 0.15), 0.23, 1.68, false, paint);
+
+    paint
+      ..style = PaintingStyle.fill
+      ..color = light;
+    for (final angle in const [-0.82, 2.32]) {
+      final x = c.dx + math.cos(angle) * r * 0.91;
+      final y = c.dy + math.sin(angle) * r * 0.91;
+      canvas.drawCircle(Offset(x, y), r * 0.035, paint);
+    }
+  }
+
+  static void _piece(
+    Canvas canvas,
+    PieceType type,
+    Rect box,
+    Color color,
+    Color light,
+  ) {
+    PiecePaths.draw(
+      canvas,
+      type,
+      box.shift(Offset(0, box.width * 0.036)),
+      Paint()..color = Palette.ink,
+    );
+    PiecePaths.draw(
+      canvas,
+      type,
+      box,
+      Paint()
+        ..shader = Gradient.linear(
+          box.topCenter,
+          box.bottomCenter,
+          [Palette.white, light, Palette.tint(color, 0.28)],
+          const [0.26, 0.60, 0.95],
+        ),
+    );
   }
 
   static void _eyes(
@@ -88,26 +137,20 @@ abstract final class TokenPainter {
     double blink,
     Offset look,
   ) {
-    final r = box.width * 0.055;
+    final r = box.width * 0.038;
+    final open = (1 - blink).clamp(0.12, 1.0);
     for (final e in PiecePaths.eyes(type)) {
-      final o = Offset(
-        box.left + e.dx * box.width,
-        box.top + e.dy * box.height,
-      );
-      final open = (1 - blink).clamp(0.08, 1.0);
+      final p =
+          Offset(box.left + e.dx * box.width, box.top + e.dy * box.height) +
+          look * r * 0.4;
       canvas.drawOval(
-        Rect.fromCenter(center: o, width: r * 2.2, height: r * 2.4 * open),
-        Paint()..color = Palette.white,
-      );
-      final p = o + look * r * 0.4;
-      canvas.drawOval(
-        Rect.fromCenter(center: p, width: r * 1.4, height: r * 1.6 * open),
+        Rect.fromCenter(center: p, width: r * 1.9, height: r * 2.3 * open),
         Paint()..color = Palette.ink,
       );
-      if (open > 0.5) {
+      if (open > 0.6) {
         canvas.drawCircle(
-          p.translate(-r * 0.3, -r * 0.35),
-          r * 0.28,
+          p.translate(-r * 0.22, -r * 0.37),
+          r * 0.26,
           Paint()..color = Palette.white,
         );
       }

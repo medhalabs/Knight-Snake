@@ -44,8 +44,8 @@ is the head's previous L−1 landing squares (one square per move, **not** the
 squares a slider passed over). Every level sets the start squares and head type.
 
 ### A turn
-1. The game shows a dot on every legal destination.
-2. The player taps a dot (or drags the head onto it).
+1. The game highlights every legal destination.
+2. The player taps a highlighted square (or drags the head onto it).
 3. The head moves there. If it ate, the snake grows (tail stays). Otherwise the
    tail square frees up.
 4. Win/lose is checked.
@@ -77,7 +77,9 @@ Landing on food eats it: +1 length, food removed, head becomes that piece type
 (except pawns, above).
 
 ### Win and lose
-- **Win** as soon as the level goal is complete (checked first).
+- **Win** as soon as the level goal is complete (checked first, including at
+  the start of a level). A goal already complete at the start earns the usual
+  bonus for all unused moves.
 - **Lose — trapped:** no legal moves.
 - **Lose — out of moves:** the move limit is used up and the goal is not done.
 - Every level has a move limit (it drives stars). Endless has none.
@@ -122,16 +124,13 @@ Piece points (stronger = more):
 
 ## 5. Look and feel
 
-- 2D, bright, candy-like, original art only, all drawn in code (vector paths).
-- Board: soft two-tone pastel squares, rounded corners, coordinates on edges.
-- Snake body: glossy rounded segments with a gradient that follows the head color.
-- Head: round colored token, white piece silhouette drawn as paths (never font
-  glyphs), two eyes that blink. Colors: knight purple, bishop teal, rook orange,
-  queen pink, king gold (pawn green reserved).
-- Food: dark tokens with the same silhouettes, gentle wobble. Rocks: soft grey stones.
-- Juice: pulsing move dots; knight arcs, sliders ease; eat particle burst;
-  praise words (NICE!, GREAT!, CHECKMATE! on the winning move); screen shake on
-  big moments; haptics; win finale; result stars pop one by one; "NEW BEST!".
+- Dark arcade presentation with original vector art drawn in code.
+- Board: beveled violet tiles, coordinates on the edges, diamonds for open
+  destinations and mint corners for captures.
+- Head and food: faceted tokens with chess silhouettes drawn as paths.
+  The connected body takes on the head color after a transformation.
+- Feedback: movement trails, landing rings, capture sparks and score text,
+  a combo counter, haptics, and a star reveal after a win.
 - Responsive: phone portrait and tablet/desktop landscape; board max ~620 px.
 - Accessibility: reduced-motion option; every piece has a distinct silhouette,
   never color alone; large touch targets (≥ 44 px).
@@ -170,3 +169,4 @@ Piece points (stronger = more):
 | Date | Change |
 |---|---|
 | 2026-11-17 | v1 rules written: tail-square landing allowed, pawns keep head type |
+| 2026-11-17 | Apply the normal unused-move bonus when a level's goal is already complete at the start |
