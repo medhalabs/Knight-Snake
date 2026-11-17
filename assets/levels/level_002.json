@@ -1,0 +1,21 @@
+{
+  "id": 2,
+  "name": "Hop Hop Hop",
+  "world": 1,
+  "board": [
+    "........",
+    "........",
+    ".....p..",
+    "...p....",
+    "........",
+    "..p.....",
+    "........",
+    "........"
+  ],
+  "snake": { "head": "knight", "squares": ["b1"] },
+  "goal": { "type": "eatAll" },
+  "moveLimit": 5,
+  "stars": [110, 160],
+  "intended": ["c3", "d5", "f6"],
+  "tutorial": "chain"
+}

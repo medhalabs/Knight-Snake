@@ -1,0 +1,21 @@
+{
+  "id": 1,
+  "name": "First Hop",
+  "world": 1,
+  "board": [
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "..p.....",
+    "........",
+    "........"
+  ],
+  "snake": { "head": "knight", "squares": ["b1"] },
+  "goal": { "type": "eatAll" },
+  "moveLimit": 3,
+  "stars": [60, 110],
+  "intended": ["c3"],
+  "tutorial": "tapDot"
+}

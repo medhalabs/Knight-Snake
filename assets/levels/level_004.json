@@ -1,0 +1,21 @@
+{
+  "id": 4,
+  "name": "Rock Garden",
+  "world": 1,
+  "board": [
+    "........",
+    "......p.",
+    ".......p",
+    "........",
+    ".#...#..",
+    "......#.",
+    "...b....",
+    "........"
+  ],
+  "snake": { "head": "knight", "squares": ["b1"] },
+  "goal": { "type": "eatAll" },
+  "moveLimit": 6,
+  "stars": [110, 160],
+  "intended": ["d2", "c3", "g7", "h6"],
+  "tutorial": "rocks"
+}
